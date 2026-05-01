@@ -15,8 +15,12 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, 
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 
+# ================= CONFIGURACIÓN - DEBE IR PRIMERO =================
+st.set_page_config(page_title="ContaXpert Pro", layout="wide", page_icon="📊")
+
 SERVIDOR = "https://contaxpert-pro.onrender.com"
 CONTACTO_WHATS = "6331124596"
+
 @st.cache_data(ttl=300) # Cache 5 min
 def despertar_servidor():
     try:
@@ -26,71 +30,6 @@ def despertar_servidor():
         return False
 
 despertar_servidor()
-st.info("Conectando al servidor...")
-
-# ================= INTERFAZ =================
-st.title("ContaXpert Pro - Registro")
-st.write("Completa tus datos para activar tu cuenta")
-
-col1, col2 = st.columns(2)
-
-with col1:
-    nombre = st.text_input("Nombre Completo *")
-    email = st.text_input("Email *")
-    tel = st.text_input("Teléfono")
-
-with col2:
-    empresa = st.text_input("Empresa/Razón Social")
-    plan = st.selectbox("Plan *", ["BASICO", "PRO", "VIP"],
-                        format_func=lambda x: {"BASICO":"Básico - 300 XML/mes",
-                                               "PRO":"Pro - 500 XML/mes",
-                                               "VIP":"VIP Ilimitado"}[x])
-    tipo_pago = st.selectbox("Tipo de Pago *", ["mensual", "pago_unico"],
-                             format_func=lambda x: {"mensual":"Mensual",
-                                                    "pago_unico":"Pago Único Vitalicio"}[x])
-
-st.divider()
-
-if st.button("Registrar y Obtener Datos de Pago", type="primary", use_container_width=True):
-    if not nombre or not email:
-        st.error("Nombre y Email son obligatorios")
-    else:
-        data = {
-            "nombre": nombre,
-            "email": email,
-            "tel": tel,
-            "empresa": empresa or nombre,
-            "plan": plan,
-            "tipo_pago": tipo_pago,
-            "forma_pago": "transferencia"
-        }
-
-        url = f"{SERVIDOR}/api/registrar_empresa"
-
-        with st.spinner("Registrando... Esto puede tardar 30 segundos si el servidor está iniciando"):
-            try:
-                response = requests.post(url, json=data, timeout=60)
-                result = response.json()
-
-                if result["status"] == "ok":
-                    st.success("¡Registro exitoso!")
-                    st.balloons()
-                    st.info(result["msg"])
-                    st.warning("Revisa tu correo. Te enviamos los datos de transferencia y el siguiente paso.")
-                else:
-                    st.error(f"Error: {result['msg']}")
-
-            except requests.exceptions.Timeout:
-                st.error("El servidor tardó demasiado. Está despertando.")
-                st.info("Espera 30 segundos y vuelve a intentar. Solo pasa la primera vez.")
-            except requests.exceptions.ConnectionError:
-                st.error("No se pudo conectar al servidor. Verifica tu conexión.")
-            except Exception as e:
-                st.error(f"Error inesperado: {e}")
-
-st.divider()
-st.caption("¿Dudas? WhatsApp: 633-112-4596")
-st.set_page_config(page_title="ContaXpert Pro", layout="wide", page_icon="📊")
 
 # ================= LOGO SVG =================
 LOGO_SVG = """
@@ -395,7 +334,7 @@ if not st.session_state.usuario:
                             "plan": plan,
                             "tipo_pago": tipo_key,
                             "forma_pago": forma_pago.lower()
-                        }, timeout=10)
+                        }, timeout=60)
                         r.raise_for_status()
                         data = r.json()
                         if data['status'] == 'ok':
@@ -404,6 +343,9 @@ if not st.session_state.usuario:
                             st.balloons()
                         else:
                             st.error(f"❌ {data['msg']}")
+                    except requests.exceptions.Timeout:
+                        st.error("El servidor tardó demasiado. Está despertando.")
+                        st.info("Espera 30 segundos y vuelve a intentar. Solo pasa la primera vez.")
                     except Exception as e:
                         st.error(f"❌ Error: {str(e)}")
                 else:
@@ -413,18 +355,18 @@ if not st.session_state.usuario:
         st.header("🏢 Sobre ContaXpert Pro")
         st.markdown("""
         ### 🎯 Nuestra Visión
-        Ser la plataforma líder en México para la automatización fiscal y contable, empoderando a contadores y empresas para que dediquen su tiempo a lo que realmente importa: crecer su negocio.
+        Ser la plataforma líder en México para la automatización fiscal y contable, empoderando a contadores y empresas para que dediquen su tiempo a lo que realmente importa: **crecer su negocio**.
 
         ### 🚀 Nuestro Objetivo
-        Eliminar el trabajo manual repetitivo en la contabilidad mediante tecnología de punta, reduciendo errores humanos y acelerando los procesos fiscales hasta 10 veces.
+        Eliminar el trabajo manual repetitivo en la contabilidad mediante tecnología de punta, reduciendo errores humanos y acelerando los procesos fiscales hasta **10 veces**.
 
         ### 💻 Lo Que Hacemos
         En **ContaXpert Pro** somos especialistas en automatización de procesos de negocio. Desarrollamos software inteligente para:
-        - **Contabilidad:** Conversión masiva de XML a Excel, PDF y Word con análisis automático
-        - **Facturación:** Integración con SAT y validación de CFDI en tiempo real
-        - **Nómina:** Cálculo automático y timbrado masivo
-        - **Inventarios:** Sincronización con sistemas ERP
-        - **Reportes:** Dashboards ejecutivos con KPIs en tiempo real
+        - **📊 Contabilidad:** Conversión masiva de XML a Excel, PDF y Word con análisis automático
+        - **🧾 Facturación:** Integración con SAT y validación de CFDI en tiempo real
+        - **👥 Nómina:** Cálculo automático y timbrado masivo
+        - **📦 Inventarios:** Sincronización con sistemas ERP
+        - **📈 Reportes:** Dashboards ejecutivos con KPIs en tiempo real
 
         Nuestro equipo de programadores expertos en Python, APIs y automatización RPA transforma procesos manuales de horas en tareas de minutos.
 
@@ -566,7 +508,6 @@ with tab1:
         with col1:
             excel_bytes = generar_excel(df)
             if st.download_button("📥 Descargar Excel", excel_bytes, file_name=f"ContaXpert_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True):
-                # CAMBIO QUIRÚRGICO: Descontar solo la primera vez que descarga
                 if not st.session_state.descarga_contabilizada:
                     try:
                         cantidad = len(st.session_state.archivos_temp)
@@ -577,7 +518,6 @@ with tab1:
                             st.session_state.datos['usados'] += cantidad
                             st.session_state.descarga_contabilizada = True
                             st.success(f"✅ Se descontaron {cantidad} XML del plan")
-                            # CAMBIO QUIRÚRGICO: Limpiar archivos para poder subir más
                             st.session_state.archivos_temp = []
                             st.session_state.df_convertido = None
                             st.rerun()
@@ -648,7 +588,6 @@ with tab4:
 
     ### 💻 Lo Que Hacemos
     En **ContaXpert Pro** somos especialistas en automatización de procesos de negocio. Desarrollamos software inteligente para:
-
     - **📊 Contabilidad:** Conversión masiva de XML a Excel, PDF y Word con análisis automático
     - **🧾 Facturación:** Integración con SAT y validación de CFDI en tiempo real
     - **👥 Nómina:** Cálculo automático y timbrado masivo

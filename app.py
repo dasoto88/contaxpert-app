@@ -600,8 +600,7 @@ with tab2:
                 "mensaje": mensaje
             }
             try:
-                r = requests
-                .post(f"{SERVIDOR}/api/enviar_mensaje", json=payload, timeout=30)
+                r = requests.post(f"{SERVIDOR}/api/enviar_mensaje", json=payload, timeout=30)
                 r.raise_for_status()
                 res = r.json()
                 if res['status'] == 'ok':

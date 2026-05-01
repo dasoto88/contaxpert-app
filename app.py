@@ -22,7 +22,7 @@ st.set_page_config(page_title="ContaXpert Pro", layout="wide", page_icon="📊")
 SERVIDOR = "https://contaxpert-pro.onrender.com"
 CONTACTO_WHATS = "6331124596"
 
-@st.cache_data(ttl=300) # Cache 5 min
+@st.cache_data(ttl=300)
 def despertar_servidor():
     try:
         requests.get(f"{SERVIDOR}/", timeout=5)
@@ -153,7 +153,6 @@ def generar_pdf_tabla(df):
     title_style = ParagraphStyle('Title', parent=styles['Heading1'], fontSize=18, textColor=colors.HexColor('#667eea'), spaceAfter=30, alignment=1)
     elements.append(Paragraph("Reporte ContaXpert Pro - CFDI", title_style))
     elements.append(Spacer(1, 12))
-
     data = [df.columns.tolist()] + df.values.tolist()
     table = Table(data, repeatRows=1)
     table.setStyle(TableStyle([
@@ -224,6 +223,8 @@ if 'descarga_contabilizada' not in st.session_state:
     st.session_state.descarga_contabilizada = False
 if 'registro_exitoso' not in st.session_state:
     st.session_state.registro_exitoso = False
+if 'msg_registro' not in st.session_state:
+    st.session_state.msg_registro = ""
 
 # ================= MODO DEMO =================
 if st.session_state.modo_demo:
@@ -284,7 +285,6 @@ if not st.session_state.usuario:
                 except Exception as e:
                     st.error(f"❌ Error: {str(e)}")
             st.markdown("---")
-            # ========== RECUPERAR USUARIO MEJORADO ==========
             with st.expander("❓ ¿Olvidaste tu usuario?"):
                 email_rec = st.text_input("Escribe el email con el que te registraste", key="email_recuperar")
                 if st.button("📧 Enviar mi usuario por correo", use_container_width=True):
@@ -303,7 +303,7 @@ if not st.session_state.usuario:
                                     st.info("Revisa tu bandeja de entrada y spam. Llegará en menos de 2 minutos.")
                                 else:
                                     st.error(f"❌ {res['msg']}")
-                                    st.warning("Verifica que el correo esté escrito correctamente o usa otro email con el que te hayas registrado")
+                                    st.warning("Verifica que el correo esté escrito correctamente")
                         except Exception as e:
                             st.error(f"❌ Error: {str(e)}")
 
@@ -331,12 +331,13 @@ if not st.session_state.usuario:
             st.metric("Total a pagar", f"${total:,.0f} MXN", delta=f"{tipo}")
         st.markdown("---")
         
-        # ========== MENSAJE INMEDIATO AL REGISTRAR ==========
+        # ========== MENSAJE DE REGISTRO ==========
         if st.session_state.registro_exitoso:
-            st.success("✅ ¡Solicitud enviada! Revisa tu correo en los próximos 2 minutos.")
-            st.info("📧 Te enviamos los datos para realizar tu transferencia. En menos de 30 minutos después de confirmar tu pago, activaremos tu usuario y te responderemos por correo con tus datos de acceso.")
+            st.success(f"✅ {st.session_state.msg_registro}")
+            st.info("📧 **Revisa tu correo en los próximos 2 minutos.** Te enviamos los datos para realizar tu transferencia. En menos de 30 minutos después de confirmar tu pago, activaremos tu usuario y te responderemos por correo con tus datos de acceso.")
             if st.button("Registrar otro usuario"):
                 st.session_state.registro_exitoso = False
+                st.session_state.msg_registro = ""
                 st.rerun()
         else:
             with st.form("registro"):
@@ -370,20 +371,20 @@ if not st.session_state.usuario:
                             if r.status_code!= 200:
                                 try:
                                     data = r.json()
-                                    st.error(f"❌ {data['msg']}")
-                                    # Si ya existe, mostrar opción de recuperar
+                                    # AQUÍ SE MUESTRA EL MENSAJE DE DUPLICADO SIN ERROR
+                                    st.warning(f"⚠️ {data['msg']}")
                                     if "ya está registrado" in data['msg']:
-                                        st.warning("¿Perdiste tu usuario? Ve a la pestaña 'Iniciar Sesión' y usa la opción '¿Olvidaste tu usuario?'")
+                                        st.info("¿Perdiste tu usuario? Ve a la pestaña 'Iniciar Sesión' y usa la opción '¿Olvidaste tu usuario?' para recibirlo por correo.")
                                 except:
                                     st.error(f"Error del servidor: {r.status_code}")
-                                    st.code(r.text)
                             else:
                                 data = r.json()
                                 if data['status'] == 'ok':
                                     st.session_state.registro_exitoso = True
+                                    st.session_state.msg_registro = data['msg']
                                     st.rerun()
                                 else:
-                                    st.error(f"❌ {data['msg']}")
+                                    st.warning(f"⚠️ {data['msg']}")
                         except requests.exceptions.Timeout:
                             st.error("El servidor tardó demasiado. Está despertando.")
                             st.info("Espera 30 segundos y vuelve a intentar. Solo pasa la primera vez del día.")
@@ -599,7 +600,8 @@ with tab2:
                 "mensaje": mensaje
             }
             try:
-                r = requests.post(f"{SERVIDOR}/api/enviar_mensaje", json=payload, timeout=30)
+                r = requests
+                .post(f"{SERVIDOR}/api/enviar_mensaje", json=payload, timeout=30)
                 r.raise_for_status()
                 res = r.json()
                 if res['status'] == 'ok':

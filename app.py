@@ -14,6 +14,7 @@ from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
+import re
 
 # ================= CONFIGURACIÓN - DEBE IR PRIMERO =================
 st.set_page_config(page_title="ContaXpert Pro", layout="wide", page_icon="📊")
@@ -54,7 +55,7 @@ CAMPOS_CFDI = {
     "Receptor": ["RFC_Receptor", "Nombre_Receptor", "DomicilioFiscal_Receptor", "RegimenFiscal_Receptor", "UsoCFDI"],
     "Conceptos": ["ClaveProdServ", "NoIdentificacion", "Cantidad", "ClaveUnidad", "Unidad", "Descripcion", "ValorUnitario", "Importe", "Descuento_Concepto", "ObjetoImp"],
     "Impuestos": ["TotalImpuestosTrasladados", "TotalImpuestosRetenidos", "IVA_Trasladado", "IEPS_Trasladado", "ISR_Retenido", "IVA_Retenido", "IEPS_Retenido"],
-    "Complementos": ["Certificado", "NoCertificado", "Sello", "SelloSAT", "RfcProvCertif"]
+    "Complementos": ["Certificado", "NoCertificado", "SelloSAT", "RfcProvCertif"]
 }
 
 def hay_internet():
@@ -63,6 +64,10 @@ def hay_internet():
         return True
     except OSError:
         return False
+
+def validar_email(email):
+    patron = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return re.match(patron, email) is not None
 
 def procesar_xmls_detalle(archivos_xml, campos_seleccionados):
     ns = {'cfdi': 'http://www.sat.gob.mx/cfd/4','cfdi33': 'http://www.sat.gob.mx/cfd/3','tfd': 'http://www.sat.gob.mx/TimbreFiscalDigital'}
@@ -217,6 +222,8 @@ if 'campos_seleccionados' not in st.session_state:
     st.session_state.campos_seleccionados = ['UUID','Serie','Folio','Fecha','RFC_Emisor','Nombre_Emisor','RFC_Receptor','Nombre_Receptor','Total','Descripcion','Importe']
 if 'descarga_contabilizada' not in st.session_state:
     st.session_state.descarga_contabilizada = False
+if 'registro_exitoso' not in st.session_state:
+    st.session_state.registro_exitoso = False
 
 # ================= MODO DEMO =================
 if st.session_state.modo_demo:
@@ -261,7 +268,7 @@ if not st.session_state.usuario:
                     st.stop()
                 try:
                     with st.spinner('Conectando al servidor...'):
-                        r = requests.post(f"{SERVIDOR}/api/login", json={"usuario": usuario}, timeout=15)
+                        r = requests.post(f"{SERVIDOR}/api/login", json={"usuario": usuario}, timeout=30)
                         r.raise_for_status()
                         res = r.json()
                     if res['status'] == 'ok':
@@ -277,17 +284,26 @@ if not st.session_state.usuario:
                 except Exception as e:
                     st.error(f"❌ Error: {str(e)}")
             st.markdown("---")
-            with st.expander("❓ Recuperar Usuario"):
-                email_rec = st.text_input("Email de registro")
-                if st.button("Enviar mis usuarios", use_container_width=True):
-                    if email_rec:
+            # ========== RECUPERAR USUARIO MEJORADO ==========
+            with st.expander("❓ ¿Olvidaste tu usuario?"):
+                email_rec = st.text_input("Escribe el email con el que te registraste", key="email_recuperar")
+                if st.button("📧 Enviar mi usuario por correo", use_container_width=True):
+                    if not email_rec:
+                        st.error("Ingresa tu email")
+                    elif not validar_email(email_rec):
+                        st.error("❌ El formato del correo no es válido. Ejemplo: usuario@gmail.com")
+                    else:
                         try:
-                            r = requests.post(f"{SERVIDOR}/api/recuperar_usuario", json={"email": email_rec}, timeout=10)
-                            r.raise_for_status()
-                            if r.json()['status'] == 'ok':
-                                st.success(f"✅ {r.json()['msg']}")
-                            else:
-                                st.error(f"❌ {r.json()['msg']}")
+                            with st.spinner("Buscando tu usuario..."):
+                                r = requests.post(f"{SERVIDOR}/api/recuperar_usuario", json={"email": email_rec}, timeout=30)
+                                r.raise_for_status()
+                                res = r.json()
+                                if res['status'] == 'ok':
+                                    st.success("✅ Te enviamos tu usuario a tu correo")
+                                    st.info("Revisa tu bandeja de entrada y spam. Llegará en menos de 2 minutos.")
+                                else:
+                                    st.error(f"❌ {res['msg']}")
+                                    st.warning("Verifica que el correo esté escrito correctamente o usa otro email con el que te hayas registrado")
                         except Exception as e:
                             st.error(f"❌ Error: {str(e)}")
 
@@ -314,46 +330,67 @@ if not st.session_state.usuario:
         with col1:
             st.metric("Total a pagar", f"${total:,.0f} MXN", delta=f"{tipo}")
         st.markdown("---")
-        with st.form("registro"):
-            st.subheader("📝 Datos de facturación")
-            col1, col2 = st.columns(2)
-            with col1:
-                nombre = st.text_input("Nombre Completo *")
-                email = st.text_input("Email *")
-            with col2:
-                tel = st.text_input("Teléfono/WhatsApp")
-                empresa = st.text_input("Razón Social o Empresa")
-            if st.form_submit_button("💳 Solicitar Alta", use_container_width=True, type="primary"):
-                if nombre and email:
-                    try:
-                        payload = {
-                            "nombre": nombre.strip(),
-                            "email": email.strip(),
-                            "tel": tel.strip(),
-                            "empresa": empresa.strip() or nombre.strip(),
-                            "plan": plan,
-                            "tipo_pago": tipo_key,
-                            "forma_pago": forma_pago.lower()
-                        }
-                        r = requests.post(f"{SERVIDOR}/api/registrar_empresa", json=payload, timeout=60)
-                        if r.status_code!= 200:
-                            st.error(f"Error del servidor: {r.status_code}")
-                            st.write("Respuesta:", r.text)
-                        else:
-                            data = r.json()
-                            if data['status'] == 'ok':
-                                st.success(f"✅ {data['msg']}")
-                                st.info("📧 Revisa tu correo. Te enviamos los datos de pago. Tu usuario se activará al confirmar la transferencia.")
-                                st.balloons()
+        
+        # ========== MENSAJE INMEDIATO AL REGISTRAR ==========
+        if st.session_state.registro_exitoso:
+            st.success("✅ ¡Solicitud enviada! Revisa tu correo en los próximos 2 minutos.")
+            st.info("📧 Te enviamos los datos para realizar tu transferencia. En menos de 30 minutos después de confirmar tu pago, activaremos tu usuario y te responderemos por correo con tus datos de acceso.")
+            if st.button("Registrar otro usuario"):
+                st.session_state.registro_exitoso = False
+                st.rerun()
+        else:
+            with st.form("registro"):
+                st.subheader("📝 Datos de facturación")
+                col1, col2 = st.columns(2)
+                with col1:
+                    nombre = st.text_input("Nombre Completo *")
+                    email = st.text_input("Email *")
+                with col2:
+                    tel = st.text_input("Teléfono/WhatsApp")
+                    empresa = st.text_input("Razón Social o Empresa")
+                if st.form_submit_button("💳 Solicitar Alta", use_container_width=True, type="primary"):
+                    if not nombre or not email:
+                        st.error("Completa nombre y email obligatorios")
+                    elif not validar_email(email):
+                        st.error("❌ El formato del correo no es válido. Ejemplo: usuario@gmail.com")
+                    else:
+                        try:
+                            payload = {
+                                "nombre": nombre.strip(),
+                                "email": email.strip(),
+                                "tel": tel.strip(),
+                                "empresa": empresa.strip() or nombre.strip(),
+                                "plan": plan,
+                                "tipo_pago": tipo_key,
+                                "forma_pago": forma_pago.lower()
+                            }
+                            with st.spinner("Procesando tu solicitud..."):
+                                r = requests.post(f"{SERVIDOR}/api/registrar_empresa", json=payload, timeout=60)
+                            
+                            if r.status_code!= 200:
+                                try:
+                                    data = r.json()
+                                    st.error(f"❌ {data['msg']}")
+                                    # Si ya existe, mostrar opción de recuperar
+                                    if "ya está registrado" in data['msg']:
+                                        st.warning("¿Perdiste tu usuario? Ve a la pestaña 'Iniciar Sesión' y usa la opción '¿Olvidaste tu usuario?'")
+                                except:
+                                    st.error(f"Error del servidor: {r.status_code}")
+                                    st.code(r.text)
                             else:
-                                st.error(f"❌ {data['msg']}")
-                    except requests.exceptions.Timeout:
-                        st.error("El servidor tardó demasiado. Está despertando.")
-                        st.info("Espera 30 segundos y vuelve a intentar. Solo pasa la primera vez.")
-                    except Exception as e:
-                        st.error(f"❌ Error: {str(e)}")
-                else:
-                    st.error("Completa nombre y email obligatorios")
+                                data = r.json()
+                                if data['status'] == 'ok':
+                                    st.session_state.registro_exitoso = True
+                                    st.rerun()
+                                else:
+                                    st.error(f"❌ {data['msg']}")
+                        except requests.exceptions.Timeout:
+                            st.error("El servidor tardó demasiado. Está despertando.")
+                            st.info("Espera 30 segundos y vuelve a intentar. Solo pasa la primera vez del día.")
+                        except requests.exceptions.ConnectionError:
+                            st.error("No se pudo conectar al servidor. Verifica tu conexión a internet.")
+                        except Exception as e:
+                            st.error(f"❌ Error: {str(e)}")
 
     with tab3:
         st.header("🏢 Sobre ContaXpert Pro")
@@ -515,7 +552,7 @@ with tab1:
                 if not st.session_state.descarga_contabilizada:
                     try:
                         cantidad = len(st.session_state.archivos_temp)
-                        r = requests.post(f"{SERVIDOR}/api/usar", json={"usuario": st.session_state.usuario, "cantidad": cantidad}, timeout=15)
+                        r = requests.post(f"{SERVIDOR}/api/usar", json={"usuario": st.session_state.usuario, "cantidad": cantidad}, timeout=30)
                         r.raise_for_status()
                         if r.json()['ok']:
                             st.session_state.datos['disponibles'] -= cantidad
@@ -562,7 +599,7 @@ with tab2:
                 "mensaje": mensaje
             }
             try:
-                r = requests.post(f"{SERVIDOR}/api/enviar_mensaje", json=payload, timeout=10)
+                r = requests.post(f"{SERVIDOR}/api/enviar_mensaje", json=payload, timeout=30)
                 r.raise_for_status()
                 res = r.json()
                 if res['status'] == 'ok':
@@ -607,4 +644,3 @@ with tab4:
     - ✅ **Capacitación incluida** en todos los planes
     - ✅ **100% Hecho en México** 🇲🇽
     """)
-    

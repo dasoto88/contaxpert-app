@@ -605,15 +605,5 @@ with tab4:
     - ✅ **Soporte 24/7** por WhatsApp con respuesta en <30 min
     - ✅ **Actualizaciones gratuitas** cuando cambia el SAT
     - ✅ **Capacitación incluida** en todos los planes
-    - **📊 Contabilidad:** Conversión masiva de XML a Excel, PDF y Word con análisis automático
-    - **🧾 Facturación:** Integración con SAT y validación de CFDI en tiempo real
-    - **👥 Nómina:** Cálculo automático y timbrado masivo
-    - **📦 Inventarios:** Sincronización con sistemas ERP
-    - **📈 Reportes:** Dashboards ejecutivos con KPIs en tiempo real
-
-    Nuestro equipo de programadores expertos en Python, APIs y automatización RPA transforma procesos manuales de horas en tareas de minutos.
-
-    ### 🤝 ¿Por Qué Elegirnos?
-    - ✅ **+500 despachos** confían en nosotros
-    - ✅ **Soporte 24/7** por WhatsApp con respuesta en <30 min
-    - ✅ **Actualizaciones
+    - ✅ **100% Hecho en México** 🇲🇽
+    """)

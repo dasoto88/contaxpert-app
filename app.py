@@ -17,6 +17,79 @@ from reportlab.lib.units import inch
 
 SERVIDOR = "https://contaxpert-pro.onrender.com"
 CONTACTO_WHATS = "6331124596"
+@st.cache_data(ttl=300) # Cache 5 min
+def despertar_servidor():
+    try:
+        requests.get(f"{SERVIDOR}/", timeout=5)
+        return True
+    except:
+        return False
+
+despertar_servidor()
+st.info("Conectando al servidor...")
+
+# ================= INTERFAZ =================
+st.title("ContaXpert Pro - Registro")
+st.write("Completa tus datos para activar tu cuenta")
+
+col1, col2 = st.columns(2)
+
+with col1:
+    nombre = st.text_input("Nombre Completo *")
+    email = st.text_input("Email *")
+    tel = st.text_input("Teléfono")
+
+with col2:
+    empresa = st.text_input("Empresa/Razón Social")
+    plan = st.selectbox("Plan *", ["BASICO", "PRO", "VIP"],
+                        format_func=lambda x: {"BASICO":"Básico - 300 XML/mes",
+                                               "PRO":"Pro - 500 XML/mes",
+                                               "VIP":"VIP Ilimitado"}[x])
+    tipo_pago = st.selectbox("Tipo de Pago *", ["mensual", "pago_unico"],
+                             format_func=lambda x: {"mensual":"Mensual",
+                                                    "pago_unico":"Pago Único Vitalicio"}[x])
+
+st.divider()
+
+if st.button("Registrar y Obtener Datos de Pago", type="primary", use_container_width=True):
+    if not nombre or not email:
+        st.error("Nombre y Email son obligatorios")
+    else:
+        data = {
+            "nombre": nombre,
+            "email": email,
+            "tel": tel,
+            "empresa": empresa or nombre,
+            "plan": plan,
+            "tipo_pago": tipo_pago,
+            "forma_pago": "transferencia"
+        }
+
+        url = f"{SERVIDOR}/api/registrar_empresa"
+
+        with st.spinner("Registrando... Esto puede tardar 30 segundos si el servidor está iniciando"):
+            try:
+                response = requests.post(url, json=data, timeout=60)
+                result = response.json()
+
+                if result["status"] == "ok":
+                    st.success("¡Registro exitoso!")
+                    st.balloons()
+                    st.info(result["msg"])
+                    st.warning("Revisa tu correo. Te enviamos los datos de transferencia y el siguiente paso.")
+                else:
+                    st.error(f"Error: {result['msg']}")
+
+            except requests.exceptions.Timeout:
+                st.error("El servidor tardó demasiado. Está despertando.")
+                st.info("Espera 30 segundos y vuelve a intentar. Solo pasa la primera vez.")
+            except requests.exceptions.ConnectionError:
+                st.error("No se pudo conectar al servidor. Verifica tu conexión.")
+            except Exception as e:
+                st.error(f"Error inesperado: {e}")
+
+st.divider()
+st.caption("¿Dudas? WhatsApp: 633-112-4596")
 st.set_page_config(page_title="ContaXpert Pro", layout="wide", page_icon="📊")
 
 # ================= LOGO SVG =================

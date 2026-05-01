@@ -15,7 +15,7 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, 
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 
-SERVIDOR = "http://127.0.0.1:5000"
+SERVIDOR = "https://contaxpert-pro.onrender.com"
 CONTACTO_WHATS = "6331124596"
 st.set_page_config(page_title="ContaXpert Pro", layout="wide", page_icon="📊")
 

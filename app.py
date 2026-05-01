@@ -326,23 +326,27 @@ if not st.session_state.usuario:
             if st.form_submit_button("💳 Solicitar Alta", use_container_width=True, type="primary"):
                 if nombre and email:
                     try:
-                        r = requests.post(f"{SERVIDOR}/api/registrar_empresa", json={
-                            "nombre": nombre,
-                            "email": email,
-                            "tel": tel,
-                            "empresa": empresa,
+                        payload = {
+                            "nombre": nombre.strip(),
+                            "email": email.strip(),
+                            "tel": tel.strip(),
+                            "empresa": empresa.strip() or nombre.strip(),
                             "plan": plan,
                             "tipo_pago": tipo_key,
                             "forma_pago": forma_pago.lower()
-                        }, timeout=60)
-                        r.raise_for_status()
-                        data = r.json()
-                        if data['status'] == 'ok':
-                            st.success(f"✅ {data['msg']}")
-                            st.info("📧 Revisa tu correo. Te enviamos los datos de pago. Tu usuario se activará al confirmar la transferencia.")
-                            st.balloons()
+                        }
+                        r = requests.post(f"{SERVIDOR}/api/registrar_empresa", json=payload, timeout=60)
+                        if r.status_code!= 200:
+                            st.error(f"Error del servidor: {r.status_code}")
+                            st.write("Respuesta:", r.text)
                         else:
-                            st.error(f"❌ {data['msg']}")
+                            data = r.json()
+                            if data['status'] == 'ok':
+                                st.success(f"✅ {data['msg']}")
+                                st.info("📧 Revisa tu correo. Te enviamos los datos de pago. Tu usuario se activará al confirmar la transferencia.")
+                                st.balloons()
+                            else:
+                                st.error(f"❌ {data['msg']}")
                     except requests.exceptions.Timeout:
                         st.error("El servidor tardó demasiado. Está despertando.")
                         st.info("Espera 30 segundos y vuelve a intentar. Solo pasa la primera vez.")
@@ -601,5 +605,15 @@ with tab4:
     - ✅ **Soporte 24/7** por WhatsApp con respuesta en <30 min
     - ✅ **Actualizaciones gratuitas** cuando cambia el SAT
     - ✅ **Capacitación incluida** en todos los planes
-    - ✅ **100% Hecho en México** 🇲🇽
-    """)
+    - **📊 Contabilidad:** Conversión masiva de XML a Excel, PDF y Word con análisis automático
+    - **🧾 Facturación:** Integración con SAT y validación de CFDI en tiempo real
+    - **👥 Nómina:** Cálculo automático y timbrado masivo
+    - **📦 Inventarios:** Sincronización con sistemas ERP
+    - **📈 Reportes:** Dashboards ejecutivos con KPIs en tiempo real
+
+    Nuestro equipo de programadores expertos en Python, APIs y automatización RPA transforma procesos manuales de horas en tareas de minutos.
+
+    ### 🤝 ¿Por Qué Elegirnos?
+    - ✅ **+500 despachos** confían en nosotros
+    - ✅ **Soporte 24/7** por WhatsApp con respuesta en <30 min
+    - ✅ **Actualizaciones

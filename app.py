@@ -607,3 +607,4 @@ with tab4:
     - ✅ **Capacitación incluida** en todos los planes
     - ✅ **100% Hecho en México** 🇲🇽
     """)
+    
